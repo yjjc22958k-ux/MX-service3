@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#171717">
+<link rel="manifest" href="manifest.json">
+<title>MX Service — Заказ-наряд</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f2f2;color:#171717;font-family:Arial,sans-serif}
+header{background:#171717;color:#fff;padding:16px 18px;position:sticky;top:0;z-index:3}header h1{margin:0;font-size:21px}
+main{max-width:1000px;margin:16px auto;padding:0 12px}.card{background:#fff;border-radius:12px;padding:17px;margin-bottom:14px;box-shadow:0 2px 8px #0001}
+h2{font-size:16px;margin:0 0 13px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label{font-size:12px;color:#555}input,select,textarea{width:100%;margin-top:4px;padding:10px;border:1px solid #ccc;border-radius:7px;font-size:14px;background:#fff}
+textarea{min-height:70px}.actions{display:flex;gap:8px;flex-wrap:wrap}button{background:#171717;color:#fff;border:0;border-radius:8px;padding:10px 13px;font-weight:bold}
+button.secondary{background:#e8e8e8;color:#111}button.remove{background:#eee;color:#111;padding:5px 8px}
+table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #ddd;font-size:13px;text-align:left}th{background:#f5f5f5}.right{text-align:right}
+.total{font-size:21px;font-weight:bold;text-align:right;margin-top:14px}.hint{font-size:12px;color:#777;margin-top:-5px;margin-bottom:12px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+@media print{header,.no-print{display:none!important}body{background:#fff}.card{box-shadow:none}}
+</style>
+</head>
+<body>
+<header><h1>🏁 MX SERVICE — ЗАКАЗ-НАРЯД</h1></header>
+<main>
+<div class="card">
+<h2>1. Клиент и мотоцикл</h2>
+<div class="grid">
+<label>ФИО клиента<input id="client"></label>
+<label>Телефон<input id="phone"></label>
+<label>Дата<input id="date" type="date"></label>
+<label>Мотоцикл<select id="bike"></select></label>
+<label>Год<input id="year" placeholder="2026"></label>
+<label>Номер рамы / VIN<input id="vin"></label>
+<label>Моточасы<input id="hours" type="number" step="0.1"></label>
+<label>Стартовый номер<input id="race"></label>
+<label>Статус<select id="status"><option>Принят</option><option>В работе</option><option>Готов</option><option>Выдан</option></select></label>
+</div>
+</div>
+
+<div class="card">
+<h2>2. Работы</h2>
+<div class="hint">Выбери мотоцикл — список работ и цена подставятся автоматически.</div>
+<div class="grid no-print">
+<label class="wide">Работа<select id="service"></select></label>
+<label>Количество<input id="qty" type="number" min="1" value="1"></label>
+<div style="align-self:end"><button onclick="addService()">＋ Добавить работу</button></div>
+</div>
+<table>
+<thead><tr><th>Работа</th><th>Цена</th><th>Кол.</th><th class="right">Сумма</th><th class="no-print"></th></tr></thead>
+<tbody id="services"></tbody>
+</table>
+</div>
+
+<div class="card">
+<h2>3. Запчасти и расходники</h2>
+<div class="grid no-print">
+<label>Наименование<input id="part"></label>
+<label>Цена<input id="partPrice" type="number" min="0"></label>
+<label>Количество<input id="partQty" type="number" min="1" value="1"></label>
+<div style="align-self:end"><button onclick="addPart()">＋ Добавить</button></div>
+</div>
+<table>
+<thead><tr><th>Запчасть</th><th>Цена</th><th>Кол.</th><th class="right">Сумма</th><th class="no-print"></th></tr></thead>
+<tbody id="parts"></tbody>
+</table>
+<div class="total">ИТОГО: <span id="total">0 ₽</span></div>
+</div>
+
+<div class="card">
+<h2>4. Комментарий</h2>
+<textarea id="comment" placeholder="Диагностика, замечания, выполненные работы..."></textarea>
+</div>
+
+<div class="card actions no-print">
+<button onclick="saveOrder()">💾 Сохранить заказ</button>
+<button onclick="window.print()">🖨 Печать / PDF</button>
+<button class="secondary" onclick="newOrder()">＋ Новый заказ</button>
+<button class="secondary" onclick="showHistory()">📋 История</button>
+<button class="secondary" onclick="exportBackup()">⬇️ Резервная копия</button>
+</div>
+<div id="history" class="card no-print" style="display:none"><h2>История</h2><div id="historyList"></div></div>
+</main>
+
+<script>
+const adult4t=[
+["Диагностика",2000],["Замена масла + масляный фильтр",2000],["Обслуживание воздушного фильтра",500],
+["Замена свечи",500],["Замена антифриза",2500],["Регулировка клапанов",4000],["Замена цепи ГРМ",5000],
+["Замена поршня",14000],["Снятие / установка двигателя",7000],["Полная переборка двигателя",35000],
+["Замена дисков сцепления",3000],["Замена корзины сцепления",3500],["Полное обслуживание сцепления",4000],
+["Замена жидкости сцепления",1000],["Снятие / установка вилки",1500],["ТО вилки",7000],
+["Замена сальников + пыльников вилки",4500],["ТО заднего амортизатора",7000],["Настройка SAG",1000],
+["Настройка подвески",2000],["Снятие / установка колеса",500],["Шиномонтаж",1200],["Установка мусса",2000],
+["Замена подшипников колеса",1500],["Протяжка спиц",1000],["Замена тормозных колодок — 1 суппорт",900],
+["Замена тормозной жидкости — 1 контур",1250],["Обслуживание суппорта",1500],["Замена тормозного диска",1900],
+["Регулировка цепи",500],["Замена цепи",4000],["Замена передней звезды",1000],["Замена задней звезды",1500],
+["Комплект цепь + звёзды",6000],["Предстартовая проверка",2500],["Полное ТО перед гонкой",5000],
+["Подготовка к соревнованиям",6000],["Мойка мотоцикла",500],["Замена грипс",1000],["Замена руля",2000],["Замена пластика",500]
+];
+const adult2t=[
+["Диагностика",2000],["Замена масла КПП",900],["Обслуживание воздушного фильтра",500],["Замена свечи",400],
+["Обслуживание карбюратора / топливной системы",2000],["Обслуживание выпускного клапана",2500],["Замена поршня",10500],
+["Полная переборка двигателя",22000],["Замена дисков сцепления",2500],["Замена корзины сцепления",3000],
+["Полное обслуживание сцепления",3500],["ТО вилки",7000],["Замена сальников + пыльников вилки",4500],
+["ТО заднего амортизатора",7000],["Настройка SAG",1000],["Настройка подвески",2000],["Снятие / установка колеса",500],
+["Шиномонтаж",1200],["Установка мусса",2000],["Замена подшипников колеса",1500],["Протяжка спиц",1000],
+["Замена тормозных колодок — 1 суппорт",900],["Замена тормозной жидкости — 1 контур",1250],["Обслуживание суппорта",1500],
+["Регулировка цепи",500],["Замена цепи",4000],["Замена передней звезды",1000],["Замена задней звезды",1500],
+["Комплект цепь + звёзды",6000],["Предстартовая проверка",2500],["Полное ТО перед гонкой",5000],
+["Подготовка к соревнованиям",6000],["Мойка мотоцикла",500],["Замена грипс",1000],["Замена руля",2000],["Замена пластика",500]
+];
+const kids=[
+["Диагностика",1500],["Замена масла КПП",700],["Обслуживание воздушного фильтра",500],["Замена свечи",300],
+["Обслуживание карбюратора",1500],["Обслуживание выпускного клапана",1500],["Замена поршня",4500],
+["Переборка двигателя",12000],["Замена дисков сцепления",1500],["Полное обслуживание сцепления",2000],
+["ТО вилки",5000],["Замена сальников + пыльников вилки",3500],["ТО заднего амортизатора",5000],["Настройка SAG",1000],
+["Снятие / установка колеса",500],["Шиномонтаж",1000],["Установка мусса",1800],["Подшипники колеса",1200],
+["Протяжка спиц",900],["Замена тормозных колодок",800],["Замена тормозной жидкости",900],["Обслуживание суппорта",1300],
+["Регулировка цепи",400],["Замена цепи",1200],["Замена передней звезды",700],["Замена задней звезды",1000],
+["Комплект цепь + звёзды",2800],["Предстартовая проверка",2000],["Полное ТО перед гонкой",4000],
+["Подготовка к соревнованиям",4500],["Мойка мотоцикла",500],["Замена грипс",800],["Замена пластика",500]
+];
+function clone(a){return a.map(x=>[x[0],x[1]])}
+function piston(a,p){return clone(a).map(x=>x[0].toLowerCase().includes("порш")?[x[0],p]:x)}
+
+const prices={
+"KTM 50 SX":clone(kids),"KTM 50 SX Factory Edition":clone(kids),"KTM 65 SX":piston(kids,5000),"KTM 85 SX":piston(kids,5500),
+"KTM 125 SX":piston(adult2t,6000),"KTM 250 SX":piston(adult2t,7000),"KTM 300 SX":piston(adult2t,7500),
+"KTM 250 SX-F":piston(adult4t,14000),"KTM 350 SX-F":piston(adult4t,14500),"KTM 450 SX-F":piston(adult4t,14000),
+"Husqvarna TC 50":clone(kids),"Husqvarna TC 65":piston(kids,5000),"Husqvarna TC 85":piston(kids,5500),
+"Husqvarna TC 125":piston(adult2t,6000),"Husqvarna TC 250":piston(adult2t,7500),
+"Husqvarna FC 250":piston(adult4t,14000),"Husqvarna FC 350":piston(adult4t,14500),"Husqvarna FC 450":piston(adult4t,14000),
+"GASGAS MC 50":clone(kids),"GASGAS MC 65":piston(kids,5000),"GASGAS MC 85":piston(kids,5500),
+"GASGAS MC 125":piston(adult2t,6000),"GASGAS MC 250":piston(adult2t,7500),
+"GASGAS MC 250F":piston(adult4t,14000),"GASGAS MC 350F":piston(adult4t,14500),"GASGAS MC 450F":piston(adult4t,14000)
+};
+
+const bike=document.getElementById("bike"), service=document.getElementById("service");
+const services=[], parts=[];
+function money(n){return Number(n||0).toLocaleString("ru-RU")+" ₽"}
+function populateBikes(){
+ let groups={KTM:Object.keys(prices).filter(x=>x.startsWith("KTM")),Husqvarna:Object.keys(prices).filter(x=>x.startsWith("Husqvarna")),GASGAS:Object.keys(prices).filter(x=>x.startsWith("GASGAS"))};
+ bike.innerHTML="";
+ for(const [brand,list] of Object.entries(groups)){
+  const og=document.createElement("optgroup");og.label=brand;
+  list.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;og.appendChild(o)});
+  bike.appendChild(og);
+ }
+}
+function fillServices(){
+ const list=prices[bike.value]||[];
+ service.innerHTML="";
+ list.forEach((x,i)=>{const o=document.createElement("option");o.value=i;o.textContent=x[0]+" — "+money(x[1]);service.appendChild(o)});
+}
+bike.addEventListener("change",fillServices);
+
+function addService(){
+ const x=(prices[bike.value]||[])[Number(service.value)];
+ const q=Math.max(1,Number(document.getElementById("qty").value)||1);
+ if(!x)return;
+ services.push({name:x[0],price:x[1],qty:q});
+ render();
+}
+function addPart(){
+ const name=document.getElementById("part").value.trim(), price=Number(document.getElementById("partPrice").value)||0, qty=Math.max(1,Number(document.getElementById("partQty").value)||1);
+ if(!name){alert("Введите название запчасти");return}
+ parts.push({name,price,qty});
+ document.getElementById("part").value="";document.getElementById("partPrice").value="";document.getElementById("partQty").value=1;
+ render();
+}
+function removeItem(arr,i){arr.splice(i,1);render()}
+function render(){
+ document.getElementById("services").innerHTML=services.map((x,i)=>`<tr><td>${x.name}</td><td>${money(x.price)}</td><td>${x.qty}</td><td class="right">${money(x.price*x.qty)}</td><td class="no-print"><button class="remove" onclick="removeItem(services,${i})">×</button></td></tr>`).join("");
+ document.getElementById("parts").innerHTML=parts.map((x,i)=>`<tr><td>${x.name}</td><td>${money(x.price)}</td><td>${x.qty}</td><td class="right">${money(x.price*x.qty)}</td><td class="no-print"><button class="remove" onclick="removeItem(parts,${i})">×</button></td></tr>`).join("");
+ const total=services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0);
+ document.getElementById("total").textContent=money(total);
+}
+function orderData(){
+ return {id:Date.now(),client:client.value,phone:phone.value,date:date.value,bike:bike.value,year:year.value,vin:vin.value,hours:hours.value,race:race.value,status:status.value,services:[...services],parts:[...parts],comment:comment.value,total:services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0)}
+}
+function saveOrder(){
+ const d=orderData();const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");all.unshift(d);localStorage.setItem("mx_orders",JSON.stringify(all));alert("Заказ №"+String(d.id).slice(-6)+" сохранён");
+}
+function showHistory(){
+ const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");document.getElementById("history").style.display="block";
+ document.getElementById("historyList").innerHTML=all.length?all.map(x=>`<div style="padding:9px 0;border-bottom:1px solid #ddd"><b>№${String(x.id).slice(-6)}</b> — ${x.client||"Без имени"} — ${x.bike} — ${x.date} — ${money(x.total)}</div>`).join(""):"История пуста";
+}
+function newOrder(){if(!confirm("Очистить текущий заказ?"))return;location.reload()}
+function exportBackup(){
+ const data=localStorage.getItem("mx_orders")||"[]";const blob=new Blob([data],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MX_Service_Backup.json";a.click();
+}
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+populateBikes();fillServices();render();
+</script>
+</body>
+</html>

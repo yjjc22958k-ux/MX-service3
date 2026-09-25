@@ -1,0 +1,1 @@
+Исправленная версия MX Service: список работ, автоматическая сумма, KTM/Husqvarna/GASGAS. Загрузить index.html, manifest.json и sw.js в корень GitHub Pages.
