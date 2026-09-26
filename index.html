@@ -18,6 +18,26 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 .total{font-size:21px;font-weight:bold;text-align:right;margin-top:14px}.hint{font-size:12px;color:#777;margin-top:-5px;margin-bottom:12px}
 @media(max-width:700px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
 @media print{header,.no-print{display:none!important}body{background:#fff}.card{box-shadow:none}}
+
+.official-print{display:none}
+@media print{
+  @page{size:A4;margin:12mm}
+  body{background:#fff;color:#111;font-family:Arial,sans-serif;font-size:11px}
+  header,main>.card{display:none!important}
+  main{max-width:none;margin:0;padding:0}
+  .official-print{display:block!important}
+  .print-title{text-align:center;font-size:22px;font-weight:bold}
+  .print-subtitle{text-align:center;font-size:15px;font-weight:bold;margin:4px 0 12px}
+  .print-row{display:flex;justify-content:space-between;border-bottom:1px solid #111;padding-bottom:5px}
+  .official-print h3{font-size:11px;border-bottom:1px solid #111;padding-bottom:3px;margin:12px 0 5px}
+  .print-box{border:1px solid #777;padding:7px;margin-bottom:4px}
+  .official-print table{width:100%;border-collapse:collapse}
+  .official-print th,.official-print td{border:1px solid #777;padding:5px;font-size:10px}
+  .print-total{text-align:right;font-weight:bold;margin-top:5px}
+  .print-grand{text-align:right;font-size:15px;font-weight:bold;border-top:2px solid #111;border-bottom:2px solid #111;padding:8px 0;margin-top:12px}
+  .print-notes{border:1px solid #777;padding:8px;min-height:42px}
+  .signatures{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:24px}
+}
 </style>
 </head>
 <body>
@@ -35,16 +55,20 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <label>Моточасы<input id="hours" type="number" step="0.1"></label>
 <label>Стартовый номер<input id="race"></label>
 <label>Статус<select id="status"><option>Принят</option><option>В работе</option><option>Готов</option><option>Выдан</option></select></label>
+<label>Механик<input id="mechanic" placeholder="ФИО механика"></label>
 </div>
 </div>
 
 <div class="card">
 <h2>2. Работы</h2>
-<div class="hint">Выбери мотоцикл — список работ и цена подставятся автоматически.</div>
+<div class="hint">Выбери мотоцикл. Используй быстрый поиск по ключевым словам.</div>
 <div class="grid no-print">
+<label class="wide">🔎 Быстрый поиск<input id="serviceSearch" placeholder="Например: масло, вилка, цепь, тормоз"></label>
 <label class="wide">Работа<select id="service"></select></label>
 <label>Количество<input id="qty" type="number" min="1" value="1"></label>
+<label>Стоимость работы, ₽<input id="servicePrice" type="number" min="0" step="100" value="0"></label>
 <div style="align-self:end"><button onclick="addService()">＋ Добавить работу</button></div>
+<div style="align-self:end"><button class="secondary" onclick="addCustomService()">＋ Своя работа</button></div>
 </div>
 <table>
 <thead><tr><th>Работа</th><th>Цена</th><th>Кол.</th><th class="right">Сумма</th><th class="no-print"></th></tr></thead>
@@ -71,10 +95,33 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <h2>4. Комментарий</h2>
 <textarea id="comment" placeholder="Диагностика, замечания, выполненные работы..."></textarea>
 </div>
+<div class="official-print">
+  <div class="print-title">MX SERVICE</div>
+  <div class="print-subtitle">ЗАКАЗ-НАРЯД № <span id="printOrderNo">____________</span></div>
+  <div class="print-row"><span>Дата: <span id="printOrderDate">____________</span></span><span>Статус: <span id="printStatus">____________</span></span></div>
+  <h3>1. СВЕДЕНИЯ О ЗАКАЗЧИКЕ</h3>
+  <div class="print-box">ФИО: <span id="printClient">____________________________</span> &nbsp;&nbsp; Телефон: <span id="printPhone">________________</span></div>
+  <h3>2. СВЕДЕНИЯ О МОТОЦИКЛЕ</h3>
+  <div class="print-box">Мотоцикл: <span id="printBike">________________</span> &nbsp; Год: <span id="printYear">______</span> &nbsp; VIN/рама: <span id="printVin">________________</span></div>
+  <div class="print-box">Моточасы: <span id="printHours">______</span> &nbsp; №: <span id="printRace">______</span> &nbsp; Механик: <span id="printMechanic">________________</span></div>
+  <h3>3. ВЫПОЛНЕННЫЕ РАБОТЫ</h3>
+  <table><thead><tr><th>№</th><th>Наименование работы</th><th>Кол.</th><th>Цена</th><th>Сумма</th></tr></thead><tbody id="printServices"></tbody></table>
+  <div class="print-total">Стоимость работ: <span id="printWorkTotal">0 ₽</span></div>
+  <h3>4. ЗАПЧАСТИ И МАТЕРИАЛЫ</h3>
+  <table><thead><tr><th>№</th><th>Наименование</th><th>Кол.</th><th>Цена</th><th>Сумма</th></tr></thead><tbody id="printParts"></tbody></table>
+  <div class="print-total">Стоимость запчастей: <span id="printPartsTotal">0 ₽</span></div>
+  <div class="print-grand">ИТОГО К ОПЛАТЕ: <span id="printGrandTotal">0 ₽</span></div>
+  <h3>ПРИМЕЧАНИЯ</h3>
+  <div class="print-notes" id="printComment">____________________________________________________________<br>____________________________________________________________</div>
+  <div class="signatures">
+    <div>Заказчик<br><br>ФИО: __________________________<br>Подпись: ______________________<br>Дата: _________________________</div>
+    <div>Механик<br><br>ФИО: __________________________<br>Подпись: ______________________<br>Дата: _________________________</div>
+  </div>
+</div>
 
 <div class="card actions no-print">
 <button onclick="saveOrder()">💾 Сохранить заказ</button>
-<button onclick="window.print()">🖨 Печать / PDF</button>
+<button onclick="prepareOfficialPrint();window.print()">🖨 Печать / PDF</button>
 <button class="secondary" onclick="newOrder()">＋ Новый заказ</button>
 <button class="secondary" onclick="showHistory()">📋 История</button>
 <button class="secondary" onclick="exportBackup()">⬇️ Резервная копия</button>
@@ -149,16 +196,44 @@ function populateBikes(){
 }
 function fillServices(){
  const list=prices[bike.value]||[];
+ const q=(document.getElementById("serviceSearch")?.value||"").trim().toLowerCase();
  service.innerHTML="";
- list.forEach((x,i)=>{const o=document.createElement("option");o.value=i;o.textContent=x[0]+" — "+money(x[1]);service.appendChild(o)});
+ list.forEach((x,i)=>{
+   if(q && !x[0].toLowerCase().includes(q)) return;
+   const o=document.createElement("option");
+   o.value=i;
+   o.textContent=x[0]+" — "+money(x[1]);
+   service.appendChild(o);
+ });
+ setServicePrice();
+}
+function addCustomService(){
+ const name=prompt("Введите название работы:");
+ if(!name || !name.trim()) return;
+ const price=Number(prompt("Введите стоимость работы, ₽:"));
+ if(!Number.isFinite(price) || price<0){
+   alert("Введите корректную стоимость");
+   return;
+ }
+ const qty=Math.max(1,Number(document.getElementById("qty").value)||1);
+ services.push({name:name.trim(),price:price,qty:qty});
+ render();
 }
 bike.addEventListener("change",fillServices);
+service.addEventListener("change",setServicePrice);
+document.getElementById("serviceSearch").addEventListener("input",fillServices);
+
+function setServicePrice(){
+ const x=(prices[bike.value]||[])[Number(service.value)];
+ document.getElementById("servicePrice").value=x?x[1]:0;
+}
 
 function addService(){
  const x=(prices[bike.value]||[])[Number(service.value)];
  const q=Math.max(1,Number(document.getElementById("qty").value)||1);
+ const customPrice=Math.max(0,Number(document.getElementById("servicePrice").value)||0);
  if(!x)return;
- services.push({name:x[0],price:x[1],qty:q});
+ services.push({name:x[0],price:customPrice,qty:q});
  render();
 }
 function addPart(){
@@ -176,8 +251,34 @@ function render(){
  document.getElementById("total").textContent=money(total);
 }
 function orderData(){
- return {id:Date.now(),client:client.value,phone:phone.value,date:date.value,bike:bike.value,year:year.value,vin:vin.value,hours:hours.value,race:race.value,status:status.value,services:[...services],parts:[...parts],comment:comment.value,total:services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0)}
+ return {id:Date.now(),client:client.value,phone:phone.value,date:date.value,bike:bike.value,year:year.value,vin:vin.value,hours:hours.value,race:race.value,status:status.value,mechanic:mechanic.value,services:[...services],parts:[...parts],comment:comment.value,total:services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0)}
 }
+
+function prepareOfficialPrint(){
+ const d=orderData();
+ const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v||"________________"};
+ set("printOrderNo",String(d.id).slice(-6));
+ set("printOrderDate",d.date);
+ set("printStatus",d.status);
+ set("printClient",d.client);
+ set("printPhone",d.phone);
+ set("printBike",d.bike);
+ set("printYear",d.year);
+ set("printVin",d.vin);
+ set("printHours",d.hours);
+ set("printRace",d.race);
+ set("printMechanic",d.mechanic);
+ const wt=d.services.reduce((s,x)=>s+x.price*x.qty,0);
+ const pt=d.parts.reduce((s,x)=>s+x.price*x.qty,0);
+ document.getElementById("printWorkTotal").textContent=money(wt);
+ document.getElementById("printPartsTotal").textContent=money(pt);
+ document.getElementById("printGrandTotal").textContent=money(wt+pt);
+ document.getElementById("printComment").innerHTML=(d.comment||"").replace(/\n/g,"<br>")||"____________________________________________________________<br>____________________________________________________________";
+ document.getElementById("printServices").innerHTML=d.services.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.qty}</td><td>${money(x.price)}</td><td>${money(x.price*x.qty)}</td></tr>`).join("")||'<tr><td colspan="5">&nbsp;</td></tr>';
+ document.getElementById("printParts").innerHTML=d.parts.map((x,i)=>`<tr><td>${i+1}</td><td>${x.name}</td><td>${x.qty}</td><td>${money(x.price)}</td><td>${money(x.price*x.qty)}</td></tr>`).join("")||'<tr><td colspan="5">&nbsp;</td></tr>';
+}
+window.addEventListener("beforeprint",prepareOfficialPrint);
+
 function saveOrder(){
  const d=orderData();const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");all.unshift(d);localStorage.setItem("mx_orders",JSON.stringify(all));alert("Заказ №"+String(d.id).slice(-6)+" сохранён");
 }
@@ -190,7 +291,7 @@ function exportBackup(){
  const data=localStorage.getItem("mx_orders")||"[]";const blob=new Blob([data],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MX_Service_Backup.json";a.click();
 }
 document.getElementById("date").value=new Date().toISOString().slice(0,10);
-populateBikes();fillServices();render();
+populateBikes();fillServices();setServicePrice();render();
 </script>
 </body>
 </html>
