@@ -350,7 +350,18 @@ function renderHistory(){
    </div>
    <div style="color:#777;font-size:13px;margin:4px 0">${esc(x.date)} · VIN: ${esc(x.vin)||"не указан"} · ${esc(x.status||"")}</div>
    <button class="secondary" onclick="openSavedOrder('${String(x.id)}')">📄 Открыть заказ-наряд</button>
+   <button class="remove" onclick="deleteOrder('${String(x.id)}')">🗑 Удалить</button>
  </div>`).join(""):"Ничего не найдено";
+}
+function deleteOrder(id){
+ const all=getOrders();
+ const o=all.find(x=>String(x.id)===String(id));
+ if(!o){alert("Заказ не найден");return}
+ if(!confirm("Удалить заказ-наряд №"+orderNo(o)+"?\n\nУдаление необратимо. Заказ исчезнет из истории, базы клиента и истории мотоцикла."))return;
+ localStorage.setItem("mx_orders",JSON.stringify(all.filter(x=>String(x.id)!==String(id))));
+ renderHistory();
+ if(typeof renderClients==='function') renderClients();
+ if(typeof renderBikes==='function') renderBikes();
 }
 function showHistory(){
  document.getElementById("history").style.display="block";
@@ -400,7 +411,7 @@ function renderClients(){
 function showClientDetails(name,phone){
  const orders=getOrders().filter(o=>(o.client||"Без имени")===name&&(o.phone||"")===phone).sort((a,b)=>(b.id||0)-(a.id||0));
  const d=document.getElementById("clientDetails");d.style.display="block";const total=orders.reduce((s,o)=>s+(Number(o.total)||0),0);
- d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(name)}</h2><div style="color:#777">${esc(phone)||"Телефон не указан"}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><div class="total" style="text-align:left;font-size:16px">Заказов: ${orders.length} · Общая сумма: ${money(total)}</div><table><thead><tr><th>Заказ</th><th>Дата</th><th>Мотоцикл</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${orders.map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${esc(o.bike)} ${esc(o.year)}</td><td>${esc(o.status)}</td><td class="right">${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button></td></tr>`).join("")}</tbody></table>`;
+ d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(name)}</h2><div style="color:#777">${esc(phone)||"Телефон не указан"}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><div class="total" style="text-align:left;font-size:16px">Заказов: ${orders.length} · Общая сумма: ${money(total)}</div><table><thead><tr><th>Заказ</th><th>Дата</th><th>Мотоцикл</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${orders.map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${esc(o.bike)} ${esc(o.year)}</td><td>${esc(o.status)}</td><td class="right">${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button> <button class="remove" onclick="deleteOrder('${String(o.id)}')">🗑</button></td></tr>`).join("")}</tbody></table>`;
  d.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function renderBikes(){
@@ -419,7 +430,7 @@ function renderBikes(){
 function showBikeDetails(i){
  const m=(window._bikeGroups||[])[i];if(!m)return;
  const d=document.getElementById("bikeDetails");d.style.display="block";
- d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(m.bike)} ${esc(m.year)}</h2><div style="color:#777">VIN / рама: ${esc(m.vin)||"не указан"}</div><div style="margin-top:4px">Владелец: ${esc(m.client)||"не указан"} ${esc(m.phone)}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><h3>История обслуживания</h3><table><thead><tr><th>Заказ</th><th>Дата</th><th>Работы</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${m.orders.sort((a,b)=>(b.id||0)-(a.id||0)).map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${(o.services||[]).length}</td><td>${esc(o.status)}</td><td>${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button></td></tr>`).join("")}</tbody></table>`;
+ d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(m.bike)} ${esc(m.year)}</h2><div style="color:#777">VIN / рама: ${esc(m.vin)||"не указан"}</div><div style="margin-top:4px">Владелец: ${esc(m.client)||"не указан"} ${esc(m.phone)}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><h3>История обслуживания</h3><table><thead><tr><th>Заказ</th><th>Дата</th><th>Работы</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${m.orders.sort((a,b)=>(b.id||0)-(a.id||0)).map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${(o.services||[]).length}</td><td>${esc(o.status)}</td><td>${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button> <button class="remove" onclick="deleteOrder('${String(o.id)}')">🗑</button></td></tr>`).join("")}</tbody></table>`;
  d.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function newOrder(){if(!confirm("Очистить текущий заказ?"))return;location.reload()}
