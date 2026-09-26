@@ -54,7 +54,10 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <label>ФИО клиента<input id="client"></label>
 <label>Телефон<input id="phone"></label>
 <label>Дата<input id="date" type="date"></label>
-<label>Мотоцикл<select id="bike"></select></label>
+<label>Мотоцикл
+<input id="bikeQuickSearch" placeholder="🔎 Поиск: KTM 450, EXC, Husqvarna, 300..." oninput="populateBikes()" style="margin-bottom:4px">
+<select id="bike"></select>
+</label>
 <label>Год<input id="year" placeholder="2026"></label>
 <label>Номер рамы / VIN<input id="vin"></label>
 <label>Моточасы<input id="hours" type="number" step="0.1"></label>
@@ -155,7 +158,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
       <button class="secondary" onclick="showOrderPage()">← К заказам</button>
     </div>
     <div class="hint" style="margin-top:10px">Мотоциклы автоматически добавляются из сохранённых заказ-нарядов. Основной идентификатор — VIN / номер рамы.</div>
-    <input id="bikeSearch" placeholder="🔎 Поиск по VIN, модели, клиенту" oninput="renderBikes()">
+    <input id="bikeSearch" placeholder="🔎 Быстрый поиск по VIN, модели, бренду, клиенту" oninput="renderBikes()">
   </div>
   <div id="bikesList"></div>
   <div id="bikeDetails" class="card" style="display:none"></div>
@@ -212,20 +215,38 @@ const prices={
 "Husqvarna FC 250":piston(adult4t,14000),"Husqvarna FC 350":piston(adult4t,14500),"Husqvarna FC 450":piston(adult4t,14000),
 "GASGAS MC 50":clone(kids),"GASGAS MC 65":piston(kids,5000),"GASGAS MC 85":piston(kids,5500),
 "GASGAS MC 125":piston(adult2t,6000),"GASGAS MC 250":piston(adult2t,7500),
-"GASGAS MC 250F":piston(adult4t,14000),"GASGAS MC 350F":piston(adult4t,14500),"GASGAS MC 450F":piston(adult4t,14000)
+"GASGAS MC 250F":piston(adult4t,14000),"GASGAS MC 350F":piston(adult4t,14500),"GASGAS MC 450F":piston(adult4t,14000),
+"KTM 150 EXC":piston(adult2t,6500),"KTM 250 EXC":piston(adult2t,7000),"KTM 300 EXC":piston(adult2t,7500),
+"KTM 250 EXC-F":piston(adult4t,14000),"KTM 350 EXC-F":piston(adult4t,14500),"KTM 450 EXC-F":piston(adult4t,14000),"KTM 500 EXC-F":piston(adult4t,14500),
+"Husqvarna TE 150":piston(adult2t,6500),"Husqvarna TE 250":piston(adult2t,7000),"Husqvarna TE 300":piston(adult2t,7500),
+"Husqvarna FE 250":piston(adult4t,14000),"Husqvarna FE 350":piston(adult4t,14500),"Husqvarna FE 450":piston(adult4t,14000),"Husqvarna FE 501":piston(adult4t,14500),
+"GASGAS EC 125":piston(adult2t,6000),"GASGAS EC 250":piston(adult2t,7000),"GASGAS EC 300":piston(adult2t,7500),
+"GASGAS EC 250F":piston(adult4t,14000),"GASGAS EC 350F":piston(adult4t,14500),"GASGAS EC 450F":piston(adult4t,14000)
 };
 
 const bike=document.getElementById("bike"), service=document.getElementById("service");
 const services=[], parts=[];
 function money(n){return Number(n||0).toLocaleString("ru-RU")+" ₽"}
 function populateBikes(){
+ const current=bike.value;
+ const q=(document.getElementById("bikeQuickSearch")?.value||"").trim().toLowerCase();
  let groups={KTM:Object.keys(prices).filter(x=>x.startsWith("KTM")),Husqvarna:Object.keys(prices).filter(x=>x.startsWith("Husqvarna")),GASGAS:Object.keys(prices).filter(x=>x.startsWith("GASGAS"))};
  bike.innerHTML="";
+ let first=null, foundCurrent=false;
  for(const [brand,list] of Object.entries(groups)){
+  const filtered=list.filter(name=>!q || name.toLowerCase().includes(q));
+  if(!filtered.length) continue;
   const og=document.createElement("optgroup");og.label=brand;
-  list.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;og.appendChild(o)});
+  filtered.forEach(name=>{
+   const o=document.createElement("option");o.value=name;o.textContent=name;og.appendChild(o);
+   if(first===null) first=name;
+   if(name===current) foundCurrent=true;
+  });
   bike.appendChild(og);
  }
+ if(foundCurrent) bike.value=current;
+ else if(first!==null) bike.value=first;
+ fillServices();
 }
 function fillServices(){
  const list=prices[bike.value]||[];
