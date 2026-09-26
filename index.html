@@ -41,8 +41,13 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 </style>
 </head>
 <body>
-<header><h1>🏁 MX SERVICE — ЗАКАЗ-НАРЯД</h1></header>
+<header><h1>🏁 MX SERVICE</h1></header>
 <main>
+<div class="card no-print" style="display:flex;gap:8px;flex-wrap:wrap">
+<button onclick="showOrderPage()">📝 Заказ-наряд</button>
+<button class="secondary" onclick="showClientsPage()">👥 Клиенты</button>
+</div>
+<div id="orderPage">
 <div class="card">
 <h2>1. Клиент и мотоцикл</h2>
 <div class="grid">
@@ -127,6 +132,20 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <button class="secondary" onclick="exportBackup()">⬇️ Резервная копия</button>
 </div>
 <div id="history" class="card no-print" style="display:none"><h2>История</h2><div id="historyList"></div></div>
+</div>
+
+<div id="clientsPage" class="no-print" style="display:none">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">👥 Клиенты</h2>
+      <button class="secondary" onclick="showOrderPage()">← К заказам</button>
+    </div>
+    <div class="hint" style="margin-top:10px">Здесь автоматически собираются все клиенты из сохранённых заказ-нарядов.</div>
+    <input id="clientSearch" placeholder="🔎 Поиск по имени или телефону" oninput="renderClients()">
+  </div>
+  <div id="clientsList"></div>
+  <div id="clientDetails" class="card" style="display:none"></div>
+</div>
 </main>
 
 <script>
@@ -286,6 +305,30 @@ function showHistory(){
  const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");document.getElementById("history").style.display="block";
  document.getElementById("historyList").innerHTML=all.length?all.map(x=>`<div style="padding:9px 0;border-bottom:1px solid #ddd"><b>№${String(x.id).slice(-6)}</b> — ${x.client||"Без имени"} — ${x.bike} — ${x.date} — ${money(x.total)}</div>`).join(""):"История пуста";
 }
+
+function getOrders(){return JSON.parse(localStorage.getItem("mx_orders")||"[]")}
+function showOrderPage(){document.getElementById("orderPage").style.display="block";document.getElementById("clientsPage").style.display="none"}
+function showClientsPage(){document.getElementById("orderPage").style.display="none";document.getElementById("clientsPage").style.display="block";document.getElementById("clientDetails").style.display="none";renderClients()}
+function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
+function clientKey(x){return ((x.client||"Без имени").trim().toLowerCase()+"|"+(x.phone||"").trim()).trim()}
+function renderClients(){
+ const q=(document.getElementById("clientSearch")?.value||"").trim().toLowerCase();
+ const groups={};
+ getOrders().forEach(o=>{const k=clientKey(o);if(!groups[k])groups[k]={name:o.client||"Без имени",phone:o.phone||"",orders:[]};groups[k].orders.push(o)});
+ let clients=Object.values(groups);
+ if(q)clients=clients.filter(c=>(c.name+" "+c.phone).toLowerCase().includes(q));
+ clients.sort((a,b)=>(b.orders[0]?.id||0)-(a.orders[0]?.id||0));
+ const box=document.getElementById("clientsList");
+ box.innerHTML=clients.length?clients.map((c,i)=>{const total=c.orders.reduce((s,o)=>s+(Number(o.total)||0),0);const last=c.orders[0]?.date||"";return `<div class="card" style="cursor:pointer" onclick='showClientDetails(${JSON.stringify(c.name)},${JSON.stringify(c.phone)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><b style="font-size:16px">${esc(c.name)}</b><div style="color:#777;font-size:13px;margin-top:4px">${esc(c.phone)||"Телефон не указан"}</div></div><div style="text-align:right"><b>${c.orders.length}</b> заказ(ов)<div style="color:#777;font-size:12px">${esc(last)}</div></div></div><div style="margin-top:10px;font-size:13px">Всего за работы и запчасти: <b>${money(total)}</b></div></div>`}).join(""):'<div class="card">Клиенты пока не добавлены. Сначала сохраните заказ-наряд.</div>';
+}
+function showClientDetails(name,phone){
+ const orders=getOrders().filter(o=>(o.client||"Без имени")===name&&(o.phone||"")===phone).sort((a,b)=>(b.id||0)-(a.id||0));
+ const d=document.getElementById("clientDetails");d.style.display="block";
+ const total=orders.reduce((s,o)=>s+(Number(o.total)||0),0);
+ d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">${esc(name)}</h2><div style="color:#777;margin-top:4px">${esc(phone)||"Телефон не указан"}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><div class="total" style="text-align:left;font-size:16px">Заказов: ${orders.length} · Общая сумма: ${money(total)}</div><table><thead><tr><th>Заказ</th><th>Дата</th><th>Мотоцикл</th><th>Статус</th><th class="right">Сумма</th></tr></thead><tbody>${orders.map(o=>`<tr><td>№${String(o.id).slice(-6)}</td><td>${esc(o.date)}</td><td>${esc(o.bike)} ${esc(o.year)}</td><td>${esc(o.status)}</td><td class="right">${money(o.total)}</td></tr>`).join("")}</tbody></table>`;
+ d.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
 function newOrder(){if(!confirm("Очистить текущий заказ?"))return;location.reload()}
 function exportBackup(){
  const data=localStorage.getItem("mx_orders")||"[]";const blob=new Blob([data],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MX_Service_Backup.json";a.click();
