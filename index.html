@@ -45,7 +45,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <main>
 <div class="card no-print" style="display:flex;gap:8px;flex-wrap:wrap">
 <button onclick="showOrderPage()">📝 Заказ-наряд</button>
-<button class="secondary" onclick="showClientsPage()">👥 Клиенты</button>
+<button class="secondary" onclick="showClientsPage()">👥 Клиенты</button><button class="secondary" onclick="showBikesPage()">🏍️ Мотоциклы</button>
 </div>
 <div id="orderPage">
 <div class="card">
@@ -54,7 +54,10 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <label>ФИО клиента<input id="client"></label>
 <label>Телефон<input id="phone"></label>
 <label>Дата<input id="date" type="date"></label>
-<label>Мотоцикл<select id="bike"></select></label>
+<label>Мотоцикл
+<input id="bikeQuickSearch" placeholder="🔎 Поиск: KTM 450, EXC, Husqvarna, 300..." oninput="populateBikes()" style="margin-bottom:4px">
+<select id="bike"></select>
+</label>
 <label>Год<input id="year" placeholder="2026"></label>
 <label>Номер рамы / VIN<input id="vin"></label>
 <label>Моточасы<input id="hours" type="number" step="0.1"></label>
@@ -119,7 +122,7 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
   <h3>ПРИМЕЧАНИЯ</h3>
   <div class="print-notes" id="printComment">____________________________________________________________<br>____________________________________________________________</div>
   <div class="signatures">
-    <div>Заказчик<br><br>ФИО: __________________________<br>Подпись: ______________________<br>Дата: _________________________</div>
+    <div>Заказчик<br><br>ФИО: <span id="printClientSign">__________________________</span><br>Подпись: ______________________<br>Дата: _________________________</div>
     <div>Механик<br><br>ФИО: __________________________<br>Подпись: ______________________<br>Дата: _________________________</div>
   </div>
 </div>
@@ -131,7 +134,9 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
 <button class="secondary" onclick="showHistory()">📋 История</button>
 <button class="secondary" onclick="exportBackup()">⬇️ Резервная копия</button>
 </div>
-<div id="history" class="card no-print" style="display:none"><h2>История</h2><div id="historyList"></div></div>
+<div id="history" class="card no-print" style="display:none"><h2>История заказ-нарядов</h2>
+<input id="orderSearch" placeholder="🔎 Поиск по номеру заказ-наряда, клиенту, VIN" oninput="renderHistory()">
+<div id="historyList"></div></div>
 </div>
 
 <div id="clientsPage" class="no-print" style="display:none">
@@ -145,6 +150,18 @@ table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px so
   </div>
   <div id="clientsList"></div>
   <div id="clientDetails" class="card" style="display:none"></div>
+</div>
+<div id="bikesPage" class="no-print" style="display:none">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <h2 style="margin:0">🏍️ База мотоциклов</h2>
+      <button class="secondary" onclick="showOrderPage()">← К заказам</button>
+    </div>
+    <div class="hint" style="margin-top:10px">Мотоциклы автоматически добавляются из сохранённых заказ-нарядов. Основной идентификатор — VIN / номер рамы.</div>
+    <input id="bikeSearch" placeholder="🔎 Быстрый поиск по VIN, модели, бренду, клиенту" oninput="renderBikes()">
+  </div>
+  <div id="bikesList"></div>
+  <div id="bikeDetails" class="card" style="display:none"></div>
 </div>
 </main>
 
@@ -198,20 +215,38 @@ const prices={
 "Husqvarna FC 250":piston(adult4t,14000),"Husqvarna FC 350":piston(adult4t,14500),"Husqvarna FC 450":piston(adult4t,14000),
 "GASGAS MC 50":clone(kids),"GASGAS MC 65":piston(kids,5000),"GASGAS MC 85":piston(kids,5500),
 "GASGAS MC 125":piston(adult2t,6000),"GASGAS MC 250":piston(adult2t,7500),
-"GASGAS MC 250F":piston(adult4t,14000),"GASGAS MC 350F":piston(adult4t,14500),"GASGAS MC 450F":piston(adult4t,14000)
+"GASGAS MC 250F":piston(adult4t,14000),"GASGAS MC 350F":piston(adult4t,14500),"GASGAS MC 450F":piston(adult4t,14000),
+"KTM 150 EXC":piston(adult2t,6500),"KTM 250 EXC":piston(adult2t,7000),"KTM 300 EXC":piston(adult2t,7500),
+"KTM 250 EXC-F":piston(adult4t,14000),"KTM 350 EXC-F":piston(adult4t,14500),"KTM 450 EXC-F":piston(adult4t,14000),"KTM 500 EXC-F":piston(adult4t,14500),
+"Husqvarna TE 150":piston(adult2t,6500),"Husqvarna TE 250":piston(adult2t,7000),"Husqvarna TE 300":piston(adult2t,7500),
+"Husqvarna FE 250":piston(adult4t,14000),"Husqvarna FE 350":piston(adult4t,14500),"Husqvarna FE 450":piston(adult4t,14000),"Husqvarna FE 501":piston(adult4t,14500),
+"GASGAS EC 125":piston(adult2t,6000),"GASGAS EC 250":piston(adult2t,7000),"GASGAS EC 300":piston(adult2t,7500),
+"GASGAS EC 250F":piston(adult4t,14000),"GASGAS EC 350F":piston(adult4t,14500),"GASGAS EC 450F":piston(adult4t,14000)
 };
 
 const bike=document.getElementById("bike"), service=document.getElementById("service");
 const services=[], parts=[];
 function money(n){return Number(n||0).toLocaleString("ru-RU")+" ₽"}
 function populateBikes(){
+ const current=bike.value;
+ const q=(document.getElementById("bikeQuickSearch")?.value||"").trim().toLowerCase();
  let groups={KTM:Object.keys(prices).filter(x=>x.startsWith("KTM")),Husqvarna:Object.keys(prices).filter(x=>x.startsWith("Husqvarna")),GASGAS:Object.keys(prices).filter(x=>x.startsWith("GASGAS"))};
  bike.innerHTML="";
+ let first=null, foundCurrent=false;
  for(const [brand,list] of Object.entries(groups)){
+  const filtered=list.filter(name=>!q || name.toLowerCase().includes(q));
+  if(!filtered.length) continue;
   const og=document.createElement("optgroup");og.label=brand;
-  list.forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;og.appendChild(o)});
+  filtered.forEach(name=>{
+   const o=document.createElement("option");o.value=name;o.textContent=name;og.appendChild(o);
+   if(first===null) first=name;
+   if(name===current) foundCurrent=true;
+  });
   bike.appendChild(og);
  }
+ if(foundCurrent) bike.value=current;
+ else if(first!==null) bike.value=first;
+ fillServices();
 }
 function fillServices(){
  const list=prices[bike.value]||[];
@@ -270,7 +305,7 @@ function render(){
  document.getElementById("total").textContent=money(total);
 }
 function orderData(){
- return {id:Date.now(),client:client.value,phone:phone.value,date:date.value,bike:bike.value,year:year.value,vin:vin.value,hours:hours.value,race:race.value,status:status.value,mechanic:mechanic.value,services:[...services],parts:[...parts],comment:comment.value,total:services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0)}
+ return {id:Date.now(),orderNo:String(Date.now()).slice(-6),client:client.value,phone:phone.value,date:date.value,bike:bike.value,year:year.value,vin:vin.value,hours:hours.value,race:race.value,status:status.value,mechanic:mechanic.value,services:[...services],parts:[...parts],comment:comment.value,total:services.reduce((s,x)=>s+x.price*x.qty,0)+parts.reduce((s,x)=>s+x.price*x.qty,0)}
 }
 
 function prepareOfficialPrint(){
@@ -279,7 +314,7 @@ function prepareOfficialPrint(){
  set("printOrderNo",String(d.id).slice(-6));
  set("printOrderDate",d.date);
  set("printStatus",d.status);
- set("printClient",d.client);
+ set("printClient",d.client); set("printClientSign",d.client);
  set("printPhone",d.phone);
  set("printBike",d.bike);
  set("printYear",d.year);
@@ -301,34 +336,92 @@ window.addEventListener("beforeprint",prepareOfficialPrint);
 function saveOrder(){
  const d=orderData();const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");all.unshift(d);localStorage.setItem("mx_orders",JSON.stringify(all));alert("Заказ №"+String(d.id).slice(-6)+" сохранён");
 }
-function showHistory(){
- const all=JSON.parse(localStorage.getItem("mx_orders")||"[]");document.getElementById("history").style.display="block";
- document.getElementById("historyList").innerHTML=all.length?all.map(x=>`<div style="padding:9px 0;border-bottom:1px solid #ddd"><b>№${String(x.id).slice(-6)}</b> — ${x.client||"Без имени"} — ${x.bike} — ${x.date} — ${money(x.total)}</div>`).join(""):"История пуста";
+function orderNo(o){return String(o.orderNo||o.id).slice(-6)}
+function renderHistory(){
+ const all=getOrders();
+ const q=(document.getElementById("orderSearch")?.value||"").trim().toLowerCase();
+ let list=all;
+ if(q) list=all.filter(x=>(orderNo(x)+" "+(x.client||"")+" "+(x.vin||"")+" "+(x.phone||"")).toLowerCase().includes(q));
+ document.getElementById("historyList").innerHTML=list.length?list.map(x=>`
+ <div style="padding:10px 0;border-bottom:1px solid #ddd">
+   <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <div><b>№${esc(orderNo(x))}</b> — ${esc(x.client||"Без имени")} — ${esc(x.bike||"")}</div>
+    <div>${money(x.total)}</div>
+   </div>
+   <div style="color:#777;font-size:13px;margin:4px 0">${esc(x.date)} · VIN: ${esc(x.vin)||"не указан"} · ${esc(x.status||"")}</div>
+   <button class="secondary" onclick="openSavedOrder('${String(x.id)}')">📄 Открыть заказ-наряд</button>
+ </div>`).join(""):"Ничего не найдено";
 }
-
+function showHistory(){
+ document.getElementById("history").style.display="block";
+ renderHistory();
+ document.getElementById("history").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function openSavedOrder(id){
+ const o=getOrders().find(x=>String(x.id)===String(id));
+ if(!o){alert("Заказ не найден");return}
+ const win=window.open("","_blank");
+ if(!win){alert("Разрешите открытие новых окон для сайта");return}
+ const money2=n=>new Intl.NumberFormat("ru-RU").format(Number(n)||0)+" ₽";
+ const rows=(o.services||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${money2(x.price)}</td><td>${money2(x.price*x.qty)}</td></tr>`).join("")||'<tr><td colspan="5">&nbsp;</td></tr>';
+ const prows=(o.parts||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td>${money2(x.price)}</td><td>${money2(x.price*x.qty)}</td></tr>`).join("")||'<tr><td colspan="5">&nbsp;</td></tr>';
+ const wt=(o.services||[]).reduce((s,x)=>s+x.price*x.qty,0), pt=(o.parts||[]).reduce((s,x)=>s+x.price*x.qty,0);
+ win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Заказ-наряд №${esc(orderNo(o))}</title>
+ <style>@page{size:A4;margin:14mm}body{font-family:Arial,sans-serif;color:#111;font-size:12px}.title{text-align:center;font-size:20px;font-weight:bold}.sub{text-align:center;font-size:16px;font-weight:bold;margin:6px 0 14px}.row{display:flex;justify-content:space-between}.box{border:1px solid #777;padding:7px;margin:4px 0}h3{font-size:12px;margin:12px 0 5px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #777;padding:5px}th{font-weight:bold}.right{text-align:right}.grand{font-size:15px;font-weight:bold;border-top:2px solid #111;border-bottom:2px solid #111;padding:8px 0;margin-top:12px;text-align:right}.notes{border:1px solid #777;padding:8px;min-height:45px}.sig{display:grid;grid-template-columns:1fr 1fr;gap:50px;margin-top:28px}@media print{.no-print{display:none!important}}</style></head><body>
+ <div class="title">MX SERVICE</div><div class="sub">ЗАКАЗ-НАРЯД № ${esc(orderNo(o))}</div>
+ <div class="row"><span>Дата: ${esc(o.date||"")}</span><span>Статус: ${esc(o.status||"")}</span></div>
+ <h3>1. СВЕДЕНИЯ О ЗАКАЗЧИКЕ</h3><div class="box">ФИО: <b>${esc(o.client||"")}</b> &nbsp;&nbsp; Телефон: ${esc(o.phone||"")}</div>
+ <h3>2. СВЕДЕНИЯ О МОТОЦИКЛЕ</h3><div class="box">Мотоцикл: ${esc(o.bike||"")} &nbsp; Год: ${esc(o.year||"")} &nbsp; VIN/рама: ${esc(o.vin||"")}</div>
+ <div class="box">Моточасы: ${esc(o.hours||"")} &nbsp; №: ${esc(o.race||"")} &nbsp; Механик: ${esc(o.mechanic||"")}</div>
+ <h3>3. ВЫПОЛНЕННЫЕ РАБОТЫ</h3><table><thead><tr><th>№</th><th>Наименование работы</th><th>Кол.</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>${rows}</tbody></table>
+ <div class="right"><b>Стоимость работ: ${money2(wt)}</b></div>
+ <h3>4. ЗАПЧАСТИ И МАТЕРИАЛЫ</h3><table><thead><tr><th>№</th><th>Наименование</th><th>Кол.</th><th>Цена</th><th>Сумма</th></tr></thead><tbody>${prows}</tbody></table>
+ <div class="right"><b>Стоимость запчастей: ${money2(pt)}</b></div>
+ <div class="grand">ИТОГО К ОПЛАТЕ: ${money2(wt+pt)}</div>
+ <h3>ПРИМЕЧАНИЯ</h3><div class="notes">${esc(o.comment||"").replace(/\n/g,"<br>")||"&nbsp;"}</div>
+ <div class="sig"><div>Заказчик<br><br>ФИО: <b>${esc(o.client||"")}</b><br>Подпись: ______________________<br>Дата: _________________________</div><div>Механик<br><br>ФИО: <b>${esc(o.mechanic||"")}</b><br>Подпись: ______________________<br>Дата: _________________________</div></div>
+ <div class="no-print" style="margin-top:25px;text-align:center;display:flex;justify-content:center;gap:10px;flex-wrap:wrap"><button onclick="window.print()">🖨 Печать / Сохранить PDF</button><button onclick="window.close()" style="background:#666">↩ Выход</button></div>
+ </body></html>`);
+ win.document.close();
+}
 function getOrders(){return JSON.parse(localStorage.getItem("mx_orders")||"[]")}
-function showOrderPage(){document.getElementById("orderPage").style.display="block";document.getElementById("clientsPage").style.display="none"}
-function showClientsPage(){document.getElementById("orderPage").style.display="none";document.getElementById("clientsPage").style.display="block";document.getElementById("clientDetails").style.display="none";renderClients()}
+function showOrderPage(){document.getElementById("orderPage").style.display="block";document.getElementById("clientsPage").style.display="none";document.getElementById("bikesPage").style.display="none"}
+function showClientsPage(){document.getElementById("orderPage").style.display="none";document.getElementById("clientsPage").style.display="block";document.getElementById("bikesPage").style.display="none";document.getElementById("clientDetails").style.display="none";renderClients()}
+function showBikesPage(){document.getElementById("orderPage").style.display="none";document.getElementById("clientsPage").style.display="none";document.getElementById("bikesPage").style.display="block";document.getElementById("bikeDetails").style.display="none";renderBikes()}
 function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]))}
 function clientKey(x){return ((x.client||"Без имени").trim().toLowerCase()+"|"+(x.phone||"").trim()).trim()}
 function renderClients(){
- const q=(document.getElementById("clientSearch")?.value||"").trim().toLowerCase();
- const groups={};
+ const q=(document.getElementById("clientSearch")?.value||"").trim().toLowerCase(),groups={};
  getOrders().forEach(o=>{const k=clientKey(o);if(!groups[k])groups[k]={name:o.client||"Без имени",phone:o.phone||"",orders:[]};groups[k].orders.push(o)});
- let clients=Object.values(groups);
- if(q)clients=clients.filter(c=>(c.name+" "+c.phone).toLowerCase().includes(q));
+ let clients=Object.values(groups);if(q)clients=clients.filter(c=>(c.name+" "+c.phone).toLowerCase().includes(q));
  clients.sort((a,b)=>(b.orders[0]?.id||0)-(a.orders[0]?.id||0));
- const box=document.getElementById("clientsList");
- box.innerHTML=clients.length?clients.map((c,i)=>{const total=c.orders.reduce((s,o)=>s+(Number(o.total)||0),0);const last=c.orders[0]?.date||"";return `<div class="card" style="cursor:pointer" onclick='showClientDetails(${JSON.stringify(c.name)},${JSON.stringify(c.phone)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><b style="font-size:16px">${esc(c.name)}</b><div style="color:#777;font-size:13px;margin-top:4px">${esc(c.phone)||"Телефон не указан"}</div></div><div style="text-align:right"><b>${c.orders.length}</b> заказ(ов)<div style="color:#777;font-size:12px">${esc(last)}</div></div></div><div style="margin-top:10px;font-size:13px">Всего за работы и запчасти: <b>${money(total)}</b></div></div>`}).join(""):'<div class="card">Клиенты пока не добавлены. Сначала сохраните заказ-наряд.</div>';
+ document.getElementById("clientsList").innerHTML=clients.length?clients.map(c=>{const total=c.orders.reduce((s,o)=>s+(Number(o.total)||0),0),last=c.orders[0]?.date||"";return `<div class="card" style="cursor:pointer" onclick='showClientDetails(${JSON.stringify(c.name)},${JSON.stringify(c.phone)})'><div style="display:flex;justify-content:space-between;gap:10px"><div><b style="font-size:16px">${esc(c.name)}</b><div style="color:#777;font-size:13px;margin-top:4px">${esc(c.phone)||"Телефон не указан"}</div></div><div style="text-align:right"><b>${c.orders.length}</b> заказ(ов)<div style="color:#777;font-size:12px">${esc(last)}</div></div></div><div style="margin-top:10px;font-size:13px">Всего: <b>${money(total)}</b></div></div>`}).join(""):'<div class="card">Клиенты пока не добавлены.</div>';
 }
 function showClientDetails(name,phone){
  const orders=getOrders().filter(o=>(o.client||"Без имени")===name&&(o.phone||"")===phone).sort((a,b)=>(b.id||0)-(a.id||0));
- const d=document.getElementById("clientDetails");d.style.display="block";
- const total=orders.reduce((s,o)=>s+(Number(o.total)||0),0);
- d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">${esc(name)}</h2><div style="color:#777;margin-top:4px">${esc(phone)||"Телефон не указан"}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><div class="total" style="text-align:left;font-size:16px">Заказов: ${orders.length} · Общая сумма: ${money(total)}</div><table><thead><tr><th>Заказ</th><th>Дата</th><th>Мотоцикл</th><th>Статус</th><th class="right">Сумма</th></tr></thead><tbody>${orders.map(o=>`<tr><td>№${String(o.id).slice(-6)}</td><td>${esc(o.date)}</td><td>${esc(o.bike)} ${esc(o.year)}</td><td>${esc(o.status)}</td><td class="right">${money(o.total)}</td></tr>`).join("")}</tbody></table>`;
+ const d=document.getElementById("clientDetails");d.style.display="block";const total=orders.reduce((s,o)=>s+(Number(o.total)||0),0);
+ d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(name)}</h2><div style="color:#777">${esc(phone)||"Телефон не указан"}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><div class="total" style="text-align:left;font-size:16px">Заказов: ${orders.length} · Общая сумма: ${money(total)}</div><table><thead><tr><th>Заказ</th><th>Дата</th><th>Мотоцикл</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${orders.map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${esc(o.bike)} ${esc(o.year)}</td><td>${esc(o.status)}</td><td class="right">${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button></td></tr>`).join("")}</tbody></table>`;
  d.scrollIntoView({behavior:"smooth",block:"start"});
 }
-
+function renderBikes(){
+ const q=(document.getElementById("bikeSearch")?.value||"").trim().toLowerCase(),groups={};
+ getOrders().forEach(o=>{
+   const vin=(o.vin||"").trim(); const key=vin?("vin:"+vin.toLowerCase()):("fallback:"+[o.bike,o.year,o.race,o.client].join("|").toLowerCase());
+   if(!groups[key])groups[key]={vin, bike:o.bike||"", year:o.year||"", client:o.client||"", phone:o.phone||"", orders:[]};
+   groups[key].orders.push(o);
+ });
+ let arr=Object.values(groups);
+ if(q)arr=arr.filter(m=>(m.vin+" "+m.bike+" "+m.year+" "+m.client+" "+m.phone).toLowerCase().includes(q));
+ arr.sort((a,b)=>(b.orders[0]?.id||0)-(a.orders[0]?.id||0));
+ document.getElementById("bikesList").innerHTML=arr.length?arr.map((m,i)=>`<div class="card" style="cursor:pointer" onclick="showBikeDetails(${i})"><b>${esc(m.bike)} ${esc(m.year)}</b><div style="color:#777;margin-top:4px">VIN / рама: ${esc(m.vin)||"не указан"}</div><div style="font-size:13px;margin-top:6px">Владелец: ${esc(m.client)||"не указан"} · Заказов: ${m.orders.length}</div></div>`).join(""):'<div class="card">Мотоциклы пока не добавлены.</div>';
+ window._bikeGroups=arr;
+}
+function showBikeDetails(i){
+ const m=(window._bikeGroups||[])[i];if(!m)return;
+ const d=document.getElementById("bikeDetails");d.style.display="block";
+ d.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><div><h2 style="margin:0">${esc(m.bike)} ${esc(m.year)}</h2><div style="color:#777">VIN / рама: ${esc(m.vin)||"не указан"}</div><div style="margin-top:4px">Владелец: ${esc(m.client)||"не указан"} ${esc(m.phone)}</div></div><button class="secondary" onclick="this.closest('.card').style.display='none'">Закрыть</button></div><h3>История обслуживания</h3><table><thead><tr><th>Заказ</th><th>Дата</th><th>Работы</th><th>Статус</th><th>Сумма</th><th></th></tr></thead><tbody>${m.orders.sort((a,b)=>(b.id||0)-(a.id||0)).map(o=>`<tr><td>№${esc(orderNo(o))}</td><td>${esc(o.date)}</td><td>${(o.services||[]).length}</td><td>${esc(o.status)}</td><td>${money(o.total)}</td><td><button class="secondary" onclick="openSavedOrder('${String(o.id)}')">📄 Открыть</button></td></tr>`).join("")}</tbody></table>`;
+ d.scrollIntoView({behavior:"smooth",block:"start"});
+}
 function newOrder(){if(!confirm("Очистить текущий заказ?"))return;location.reload()}
 function exportBackup(){
  const data=localStorage.getItem("mx_orders")||"[]";const blob=new Blob([data],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="MX_Service_Backup.json";a.click();
